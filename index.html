@@ -405,6 +405,94 @@
             display: block;
         }
 
+        /* Avatar Creator Modal */
+        .avatar-creator-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 3000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .avatar-creator-modal.visible {
+            display: flex;
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .avatar-creator-container {
+            position: relative;
+            width: 95%;
+            height: 95%;
+            max-width: 1200px;
+            max-height: 800px;
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
+        }
+
+        .avatar-creator-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .avatar-creator-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 3001;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .avatar-creator-close:hover {
+            background: rgba(0, 0, 0, 0.9);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .avatar-btn {
+            background: rgba(100, 150, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            margin: 3px;
+            title: "Create Avatar";
+        }
+
+        .avatar-btn:hover {
+            background: rgba(100, 150, 255, 1);
+            transform: scale(1.05);
+        }
 
         /* Responsive design */
         @media (max-width: 768px) {
@@ -491,6 +579,17 @@
         <div class="control-group">
             <button id="rotate-left" class="control-btn" title="Rotate Left">↶</button>
             <button id="rotate-right" class="control-btn" title="Rotate Right">↷</button>
+        </div>
+        <div class="control-group">
+            <button id="avatar-creator-btn" class="avatar-btn" title="Create Avatar">👤</button>
+        </div>
+    </div>
+
+    <!-- Avatar Creator Modal -->
+    <div id="avatar-creator-modal" class="avatar-creator-modal">
+        <div class="avatar-creator-container">
+            <button id="avatar-creator-close" class="avatar-creator-close">✕</button>
+            <iframe id="avatar-creator-iframe" class="avatar-creator-iframe" allow="camera *; microphone *; clipboard-write"></iframe>
         </div>
     </div>
 
@@ -1023,9 +1122,71 @@
             }
         }
 
+        class AvatarCreator {
+            constructor() {
+                this.subdomain = 'demo';
+                this.frame = document.getElementById('avatar-creator-iframe');
+                this.modal = document.getElementById('avatar-creator-modal');
+                this.btn = document.getElementById('avatar-creator-btn');
+                this.closeBtn = document.getElementById('avatar-creator-close');
+
+                this.frame.src = `https://${this.subdomain}.readyplayer.me/avatar?frameApi`;
+
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                this.btn.addEventListener('click', () => this.openCreator());
+                this.closeBtn.addEventListener('click', () => this.closeCreator());
+                this.modal.addEventListener('click', (e) => {
+                    if (e.target === this.modal) this.closeCreator();
+                });
+
+                window.addEventListener('message', (e) => this.handleMessage(e));
+                document.addEventListener('message', (e) => this.handleMessage(e));
+            }
+
+            openCreator() {
+                this.modal.classList.add('visible');
+                this.frame.contentWindow.postMessage(
+                    JSON.stringify({
+                        target: 'readyplayerme',
+                        type: 'subscribe',
+                        eventName: 'v1.**'
+                    }),
+                    '*'
+                );
+            }
+
+            closeCreator() {
+                this.modal.classList.remove('visible');
+            }
+
+            handleMessage(event) {
+                try {
+                    const json = JSON.parse(event.data);
+
+                    if (json?.source !== 'readyplayerme') {
+                        return;
+                    }
+
+                    if (json.eventName === 'v1.avatar.exported') {
+                        const avatarUrl = json.data.url;
+                        localStorage.setItem('sharedAvatarUrl', avatarUrl);
+                        console.log('Avatar created:', avatarUrl);
+                        this.closeCreator();
+                        window.location.reload();
+                    }
+                } catch (error) {
+                    // Not a JSON message, ignore
+                }
+            }
+        }
+
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('sharedAvatarUrl', 'https://models.readyplayer.me/692346871aa3af821a6d0d53.glb');
+            window.avatarCreator = new AvatarCreator();
             window.locationExplorer = new LocationExplorer();
         });
 
